@@ -1,4 +1,4 @@
-
+console.log("🟢 LE SCRIPT EST BIEN LU !");
 //
 // OSMO PAGE TRANSITION BOILERPLATE
 //
