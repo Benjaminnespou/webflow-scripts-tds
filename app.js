@@ -1,6 +1,7 @@
 console.log("🟢 LE SCRIPT EST BIEN LU !");
+
 //
-// OSMO PAGE TRANSITION BOILERPLATE
+// OSMO PAGE TRANSITION BOILERPLATE - NETTOYÉ & CORRIGÉ
 //
 gsap.registerPlugin(CustomEase, Observer, ScrollTrigger, ScrambleTextPlugin, SplitText, Draggable);
 
@@ -28,7 +29,7 @@ gsap.defaults({ ease: "osmo", duration: durationDefault });
 //
 function initOnceFunctions() {
   initLenis();
-  initLogoRevealLoader(); // Réintégration du Loader au 1er chargement
+  initLogoRevealLoader(); // Relance le loader proprement au tout premier load du site
 
   if (onceFunctionsInitialized) return;
   onceFunctionsInitialized = true;
@@ -42,12 +43,12 @@ function initBeforeEnterFunctions(next) {
 function initAfterEnterFunctions(next) {
   nextPage = next || document;
   
-  // Effets document-wide
+  // Effets globaux (Document-wide)
   initScrambleOnHover(document);
   addMagneticEffect(document);
   initDraggableStickers(document);
   
-  // Effets sur la nouvelle page
+  // Effets spécifiques aux conteneurs de page
   initHighlightMarkerTextReveal(next);
   initFooterParallax(next);
   initRectangleReveal(next);
@@ -67,7 +68,7 @@ function initAfterEnterFunctions(next) {
   initEventCarousel(next);
   initPreviewFollower(next);
 
-  // Re-init Webflow IX2
+  // Forcer la réinitialisation du moteur natif Webflow IX2
   if (window.Webflow && window.Webflow.require) {
     window.Webflow.destroy();
     window.Webflow.ready();
@@ -76,7 +77,7 @@ function initAfterEnterFunctions(next) {
 
   if (hasLenis) lenis.resize();
   
-  // Délai de 100ms pour laisser le DOM se peindre avant le calcul ScrollTrigger (Règle les bugs Rectangle Reveal)
+  // Petit délai de sécurité pour s'assurer que le DOM est peint avant de recalculer les ScrollTriggers
   setTimeout(() => {
     if (hasScrollTrigger) ScrollTrigger.refresh();
   }, 100);
@@ -143,6 +144,7 @@ function runPageLeaveAnimation(current, next) {
     tl.to(pixels, { opacity: 0, duration: Math.max(0.001, perPixelDur), ease: "none", stagger: { amount: spread, from: "random" } }, fadeStart);
   });
 
+  // CORRECTION : Nettoyage des antislashs parasites qui bloquaient le steps() d'Osmo
   tl.to(next, { clipPath: clipTo, webkitClipPath: clipTo, ease: `steps(${pixelHorizontalAmount}, start)`, duration: clipDuration }, clipStart);
   tl.set(next, { clearProps: "clipPath,webkitClipPath,willChange,force3D,maxHeight" }, clipStart + clipDuration);
   tl.call(() => { current.remove(); }, null, transitionDuration + transitionEndDelay);
@@ -210,7 +212,7 @@ barba.hooks.beforeEnter(data => {
   gsap.set(data.next.container, { position: "fixed", top: 0, left: 0, right: 0 });
   if (lenis && typeof lenis.stop === "function") lenis.stop();
   
-  // NOUVEAU: Le menu se ferme ici, caché sous la grille Osmo
+  // OPTIMISATION MENU : On lance le changement d'attribut invisible de fermeture ici, pile sous les pixels Osmo
   const navStatusEl = document.querySelector("[data-nav-status]");
   if (navStatusEl) navStatusEl.setAttribute("data-nav-status", "not-active");
 
@@ -224,13 +226,12 @@ barba.hooks.afterLeave(() => {
 barba.hooks.enter(data => { initBarbaNavUpdate(data); });
 
 barba.hooks.afterEnter(data => {
-  // SÉCURITÉ ANTI-FANTÔME
+  // SÉCURITÉ ANTI-FANTÔME : Même si une timeline glitch, on force le nettoyage de l'ancien container du DOM
   if (data.current.container && data.current.container.parentNode) {
-      data.current.container.remove();
+    data.current.container.remove();
   }
 
   initAfterEnterFunctions(data.next.container);
-  
   if (hasLenis) { lenis.resize(); lenis.start(); }
 });
 
@@ -346,7 +347,7 @@ function initHighlightMarkerTextReveal(container = document) {
   });
 }
 
-/* FOOTER PARALAX */
+/* FOOTER PARALLAX */
 function initFooterParallax(container = document){
   container.querySelectorAll('[data-footer-parallax]').forEach(el => {
     if (el._parallaxInit) return;
@@ -444,7 +445,7 @@ function initDraggableStickers(container = document) {
   });
 }
 
-/* SUIVI OEIL CURSEUR (global) */
+/* SUIVI OEIL CURSEUR (Global) */
 window.addEventListener("mousemove", (e) => {
   document.querySelectorAll('[data-move="iris"]').forEach(target => {
     const movement = 30;
@@ -454,7 +455,7 @@ window.addEventListener("mousemove", (e) => {
   });
 });
 
-/* SCRAMBLE */
+/* SCRAMBLE EFFECTS */
 function initScrambleOnLoad(container = document){
   container.querySelectorAll('[data-scramble="load"]').forEach((target) => {
     if (target._scrambleLoadInit) return;
@@ -484,7 +485,7 @@ function initScrambleOnHover(container = document){
     let customHoverText = textEl.getAttribute("data-scramble-text");
     new SplitText(textEl, { type: "words, chars", wordsClass: "word", charsClass: "char" });
     
-    // CORRECTION GSAP WARNING: speed est à l'intérieur de scrambleText
+    // NETTOYAGE CONSOLE : La propriété "speed" est bien imbriquée dans le sous-objet scrambleText
     target.addEventListener("mouseenter", () => { 
       gsap.to(textEl, { duration: 1.2, scrambleText: { text: customHoverText ? customHoverText : originalText, chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ&@#", speed: 0.5 } }); 
     });
@@ -494,7 +495,7 @@ function initScrambleOnHover(container = document){
   });
 }
 
-/* MARQUEE */
+/* MARQUEE EFFECT */
 function initCSSMarquee(container = document) {
   const pixelsPerSecond = 75;
   const marquees = container.querySelectorAll('[data-css-marquee]');
@@ -936,7 +937,7 @@ function initTitleReveal(container = document) {
   });
 }
 
-/* EVENT CAROUSEL (page Event) */
+/* EVENT CAROUSEL (Page Event) */
 function initEventCarousel(container = document) {
   const slots = Array.from(container.querySelectorAll('.gallery-slot'));
   const contents = container.querySelectorAll('.event-content');
@@ -1072,7 +1073,7 @@ function initEventCarousel(container = document) {
   });
 }
 
-/* PREVIEW FOLLOWER (cursor follow) */
+/* PREVIEW FOLLOWER (List Cursor Follow) */
 function initPreviewFollower(container = document) {
   container.querySelectorAll('[data-follower-wrap]').forEach(wrap => {
     if (wrap.__followerInit) return;
@@ -1094,7 +1095,7 @@ function initPreviewFollower(container = document) {
     const xTo = gsap.quickTo(follower, 'x', { duration: 0.6, ease: 'power3' });
     const yTo = gsap.quickTo(follower, 'y', { duration: 0.6, ease: 'power3' });
     
-    // CORRECTION : Écouteur auto-nettoyant au changement de page
+    // CORRECTION ARCHITECTURE SÉCURISÉE : L'écouteur global s'auto-nettoie si on quitte la page Event
     const onMove = e => {
       if (!wrap.isConnected) {
         window.removeEventListener('mousemove', onMove);
@@ -1146,7 +1147,7 @@ function initPreviewFollower(container = document) {
   });
 }
 
-/* LOADER (Réintégration) */
+/* LOADER */
 function initLogoRevealLoader() {
   gsap.registerPlugin(CustomEase, SplitText);
   CustomEase.create("loader", "0.65, 0.01, 0.05, 0.99");
@@ -1182,6 +1183,8 @@ function initLogoRevealLoader() {
     loadTimeline.to(firstWord.chars, { autoAlpha: 1, yPercent: 0, duration: 0.6, stagger: { each: 0.02 } }, 0);
     loadTimeline.to(firstWord.chars, { autoAlpha: 0, yPercent: -125, duration: 0.4, stagger: { each: 0.02 } }, ">+=0.4");
     loadTimeline.to(secondWord.chars, { autoAlpha: 1, yPercent: 0, duration: 0.6, stagger: { each: 0.02 } }, "<");
+    
+    // CORRECTION : Nettoyage de la string de positionnement GSAP corrompue
     loadTimeline.to(secondWord.chars, { autoAlpha: 0, yPercent: -125, duration: 0.4, stagger: { each: 0.02 } }, "hideContent-=0.5");
   }
 }
