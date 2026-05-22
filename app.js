@@ -1,7 +1,7 @@
-console.log("🟢 LE SCRIPT EST BIEN LU !");
+console.log("🟢 V3: SCRIPT BLINDÉ, ANTI-FANTÔMES ET SCROLL FIXÉ !");
 
 //
-// OSMO PAGE TRANSITION BOILERPLATE - NETTOYÉ & CORRIGÉ
+// OSMO PAGE TRANSITION BOILERPLATE
 //
 gsap.registerPlugin(CustomEase, Observer, ScrollTrigger, ScrambleTextPlugin, SplitText, Draggable);
 
@@ -24,16 +24,25 @@ let durationDefault = 0.6;
 CustomEase.create("osmo", "0.625, 0.05, 0, 1");
 gsap.defaults({ ease: "osmo", duration: durationDefault });
 
+// --- LE BOUCLIER ANTI-CRASH ---
+// Cette fonction empêche une erreur JS isolée de casser tout le site et de créer des pages fantômes
+function safeInit(fn, ...args) {
+  try { fn(...args); } catch (err) { console.warn(`⚠️ Erreur ignorée dans l'effet ${fn.name}:`, err); }
+}
+
 //
 // FUNCTION REGISTRY
 //
 function initOnceFunctions() {
   initLenis();
-  initLogoRevealLoader(); // Relance le loader proprement au tout premier load du site
+  if (hasLenis && lenis) lenis.start(); // Débloque le scroll immédiatement en cas de hard-reload (Page Event)
+  
+  safeInit(initLogoRevealLoader);
+  safeInit(initFooterDeformation, document); // Le footer est global, on l'initialise ici (sans le blur)
 
   if (onceFunctionsInitialized) return;
   onceFunctionsInitialized = true;
-  initTwostepScalingNavigation();
+  safeInit(initTwostepScalingNavigation);
 }
 
 function initBeforeEnterFunctions(next) {
@@ -44,43 +53,37 @@ function initAfterEnterFunctions(next) {
   nextPage = next || document;
   
   // Effets globaux (Document-wide)
-  initScrambleOnHover(document);
-  addMagneticEffect(document);
-  initDraggableStickers(document);
+  safeInit(initScrambleOnHover, document);
+  safeInit(addMagneticEffect, document);
+  safeInit(initDraggableStickers, document);
   
   // Effets spécifiques aux conteneurs de page
-  initHighlightMarkerTextReveal(next);
-  initFooterParallax(next);
-  initRectangleReveal(next);
-  initScrambleOnLoad(next);
-  initScrambleOnScroll(next);
-  initMwg026Effect(next);
-  initMouseTrailEffect(next);
-  initCSSMarquee(next);
-  initMwg005AboutScroll(next);
-  initMaskTextScrollReveal(next);
-  initMwg008TeamCarousel(next);
-  initPixelatedImageReveal(next);
-  initFooterDeformation(next);
-  initPixelatedScrollTransition(next);
-  initPixelReveal(next);
-  initTitleReveal(next);
-  initEventCarousel(next);
-  initPreviewFollower(next);
+  safeInit(initHighlightMarkerTextReveal, next);
+  safeInit(initFooterParallax, next);
+  safeInit(initRectangleReveal, next);
+  safeInit(initScrambleOnLoad, next);
+  safeInit(initScrambleOnScroll, next);
+  safeInit(initMwg026Effect, next);
+  safeInit(initMouseTrailEffect, next);
+  safeInit(initCSSMarquee, next);
+  safeInit(initMwg005AboutScroll, next);
+  safeInit(initMaskTextScrollReveal, next);
+  safeInit(initMwg008TeamCarousel, next);
+  safeInit(initPixelatedImageReveal, next);
+  safeInit(initPixelatedScrollTransition, next);
+  safeInit(initPixelReveal, next);
+  safeInit(initTitleReveal, next);
+  safeInit(initEventCarousel, next);
+  safeInit(initPreviewFollower, next);
 
   // Forcer la réinitialisation du moteur natif Webflow IX2
   if (window.Webflow && window.Webflow.require) {
-    window.Webflow.destroy();
-    window.Webflow.ready();
-    window.Webflow.require('ix2').init();
+    try {
+      window.Webflow.destroy();
+      window.Webflow.ready();
+      window.Webflow.require('ix2').init();
+    } catch(e) {}
   }
-
-  if (hasLenis) lenis.resize();
-  
-  // Petit délai de sécurité pour s'assurer que le DOM est peint avant de recalculer les ScrollTriggers
-  setTimeout(() => {
-    if (hasScrollTrigger) ScrollTrigger.refresh();
-  }, 100);
 }
 
 //
@@ -144,7 +147,6 @@ function runPageLeaveAnimation(current, next) {
     tl.to(pixels, { opacity: 0, duration: Math.max(0.001, perPixelDur), ease: "none", stagger: { amount: spread, from: "random" } }, fadeStart);
   });
 
-  // CORRECTION : Nettoyage des antislashs parasites qui bloquaient le steps() d'Osmo
   tl.to(next, { clipPath: clipTo, webkitClipPath: clipTo, ease: `steps(${pixelHorizontalAmount}, start)`, duration: clipDuration }, clipStart);
   tl.set(next, { clearProps: "clipPath,webkitClipPath,willChange,force3D,maxHeight" }, clipStart + clipDuration);
   tl.call(() => { current.remove(); }, null, transitionDuration + transitionEndDelay);
@@ -212,7 +214,6 @@ barba.hooks.beforeEnter(data => {
   gsap.set(data.next.container, { position: "fixed", top: 0, left: 0, right: 0 });
   if (lenis && typeof lenis.stop === "function") lenis.stop();
   
-  // OPTIMISATION MENU : On lance le changement d'attribut invisible de fermeture ici, pile sous les pixels Osmo
   const navStatusEl = document.querySelector("[data-nav-status]");
   if (navStatusEl) navStatusEl.setAttribute("data-nav-status", "not-active");
 
@@ -221,18 +222,23 @@ barba.hooks.beforeEnter(data => {
 
 barba.hooks.afterLeave(() => {
   if (hasScrollTrigger) ScrollTrigger.getAll().forEach(trigger => trigger.kill());
+  // FIX MAJEUR DOM : On vide le cache Barba pour forcer un HTML neuf. 
+  // Sans ça, les effets comme Rectangle Reveal refusent de s'appliquer car ils croient avoir déjà wrappé le texte.
+  barba.cache.clear(); 
 });
 
 barba.hooks.enter(data => { initBarbaNavUpdate(data); });
 
 barba.hooks.afterEnter(data => {
-  // SÉCURITÉ ANTI-FANTÔME : Même si une timeline glitch, on force le nettoyage de l'ancien container du DOM
-  if (data.current.container && data.current.container.parentNode) {
-    data.current.container.remove();
+  // LE NETTOYEUR DE FANTÔMES ABSOLU : Si une erreur se produit, on force la suppression de TOUS les anciens containers
+  const containers = document.querySelectorAll('[data-barba="container"]');
+  if (containers.length > 1) {
+      for (let i = 0; i < containers.length - 1; i++) {
+          containers[i].remove();
+      }
   }
 
   initAfterEnterFunctions(data.next.container);
-  if (hasLenis) { lenis.resize(); lenis.start(); }
 });
 
 barba.init({
@@ -271,6 +277,12 @@ function resetPage(container) {
   window.scrollTo(0, 0);
   gsap.set(container, { clearProps: "position,top,left,right" });
   if (hasLenis) { lenis.resize(); lenis.start(); }
+  
+  // FIX SCROLLTRIGGERS : On rafraîchit impérativement APRÈS avoir enlevé le position: fixed
+  // Sinon, Rectangle Reveal et mwg005 se croient tous à la position Y = 0.
+  setTimeout(() => {
+    if (hasScrollTrigger) ScrollTrigger.refresh();
+  }, 50);
 }
 
 function initBarbaNavUpdate(data) {
@@ -365,6 +377,7 @@ function initFooterParallax(container = document){
 function initRectangleReveal(container = document) {
   const CONFIG = { duration: 1, ease: "power2.inOut", color: "#350AFF", startScrub: "top 80%" };
   container.querySelectorAll('[data-effect="swipe-reveal"]').forEach((text) => {
+    // Si Barba cache la page, on ignore le re-wrap
     if (text._swipeRevealInit) return;
     text._swipeRevealInit = true;
     
@@ -485,7 +498,6 @@ function initScrambleOnHover(container = document){
     let customHoverText = textEl.getAttribute("data-scramble-text");
     new SplitText(textEl, { type: "words, chars", wordsClass: "word", charsClass: "char" });
     
-    // NETTOYAGE CONSOLE : La propriété "speed" est bien imbriquée dans le sous-objet scrambleText
     target.addEventListener("mouseenter", () => { 
       gsap.to(textEl, { duration: 1.2, scrambleText: { text: customHoverText ? customHoverText : originalText, chars: "ABCDEFGHIJKLMNOPQRSTUVWXYZ&@#", speed: 0.5 } }); 
     });
@@ -766,8 +778,9 @@ function initPixelatedImageReveal(container = document) {
   });
 }
 
-/* FOOTER DEFORMATION */
+/* FOOTER DEFORMATION (CORRIGÉ : PLUS DE BLUR) */
 function initFooterDeformation(container = document) {
+  // Changé pour Cibler document globalement, vu que le footer est hors du wrapper
   container.querySelectorAll('.effet-deformation').forEach(el => {
     if (el.__deformationInit) return;
     el.__deformationInit = true;
@@ -782,17 +795,14 @@ function initFooterDeformation(container = document) {
       const rotateY = distX * 15;
       const skewX = distX * 5; 
       const skewY = distY * 5;
-      const distance = Math.sqrt(distX * distX + distY * distY);
-      const blurAmount = distance * 2;
-      el.style.transition = 'transform 0.1s ease-out, filter 0.1s ease-out';
+      
+      el.style.transition = 'transform 0.1s ease-out';
       el.style.transform = `perspective(1000px) scale(1.05) rotateX(${rotateX}deg) rotateY(${rotateY}deg) skew(${skewX}deg, ${skewY}deg)`;
-      el.style.filter = `blur(${blurAmount}px)`;
     });
     
     el.addEventListener('mouseleave', () => {
-      el.style.transition = 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), filter 0.5s ease';
+      el.style.transition = 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1)';
       el.style.transform = 'perspective(1000px) scale(1) rotateX(0deg) rotateY(0deg) skew(0deg, 0deg)';
-      el.style.filter = 'blur(0px)';
     });
   });
 }
@@ -1095,7 +1105,6 @@ function initPreviewFollower(container = document) {
     const xTo = gsap.quickTo(follower, 'x', { duration: 0.6, ease: 'power3' });
     const yTo = gsap.quickTo(follower, 'y', { duration: 0.6, ease: 'power3' });
     
-    // CORRECTION ARCHITECTURE SÉCURISÉE : L'écouteur global s'auto-nettoie si on quitte la page Event
     const onMove = e => {
       if (!wrap.isConnected) {
         window.removeEventListener('mousemove', onMove);
@@ -1118,7 +1127,12 @@ function initPreviewFollower(container = document) {
         
         const visual = item.querySelector('[data-follower-visual]');
         if (!visual) return;
+        
+        // FIX IMAGE NON VISIBLE : On clone l'image et on force son affichage au cas où Webflow l'a masquée en CSS
         const clone = visual.cloneNode(true);
+        clone.style.display = 'block';
+        clone.style.opacity = '1';
+        
         followerInner.appendChild(clone);
         
         if (!firstEntry) {
@@ -1183,8 +1197,6 @@ function initLogoRevealLoader() {
     loadTimeline.to(firstWord.chars, { autoAlpha: 1, yPercent: 0, duration: 0.6, stagger: { each: 0.02 } }, 0);
     loadTimeline.to(firstWord.chars, { autoAlpha: 0, yPercent: -125, duration: 0.4, stagger: { each: 0.02 } }, ">+=0.4");
     loadTimeline.to(secondWord.chars, { autoAlpha: 1, yPercent: 0, duration: 0.6, stagger: { each: 0.02 } }, "<");
-    
-    // CORRECTION : Nettoyage de la string de positionnement GSAP corrompue
     loadTimeline.to(secondWord.chars, { autoAlpha: 0, yPercent: -125, duration: 0.4, stagger: { each: 0.02 } }, "hideContent-=0.5");
   }
 }
